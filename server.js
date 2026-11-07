@@ -23,7 +23,7 @@ const SEED=[
  {id:'g12',name:'Girls Under 12',gender:'Girls',cutoff:'2016-01-01',fee:100,note:'',open:true},
  {id:'gopen',name:'Girls Open',gender:'Girls',cutoff:null,fee:100,note:'',open:true},
  {id:'mixed',name:'Mixed',gender:'Any',cutoff:null,fee:100,note:'Min. 1 girl per team, others boys, no age limit',open:true}];
-const S={regs:{},cats:[],settings:{registrationOpen:true,editOpen:false,notice:''},next:1};
+const S={regs:{},cats:[],settings:{registrationOpen:true,editOpen:false,notice:'',title:'Diwali 3x3 Tournament',subtitle:'Age-category 3x3 basketball festival',about:'Players join categories by date of birth and may also play in other categories they are eligible for. The organizer may add or change categories later; you can then log in and edit your registration when the circular is released.'},next:1};
 const saveReg=r=>kv.set('reg:'+r.id,JSON.stringify(r)),saveCats=()=>kv.set('cats',JSON.stringify(S.cats)),saveSettings=()=>kv.set('settings',JSON.stringify(S.settings));
 async function init(){
   const d=await kv.all();
@@ -124,7 +124,7 @@ const server=http.createServer(async(req,res)=>{try{
       for(const r of Object.values(S.regs))if(r.cats.includes(b.id)){r.cats=r.cats.filter(x=>x!==b.id);await saveReg(r);}
       scheduleReport();return send(res,200,{ok:true});
     }
-    if(p==='/api/admin/settings'){Object.assign(S.settings,{registrationOpen:!!b.registrationOpen,editOpen:!!b.editOpen,notice:str(b.notice,300)});await saveSettings();return send(res,200,{ok:true});}
+    if(p==='/api/admin/settings'){Object.assign(S.settings,{registrationOpen:!!b.registrationOpen,editOpen:!!b.editOpen,notice:str(b.notice,300),title:str(b.title,80)||'Diwali 3x3 Tournament',subtitle:str(b.subtitle,120),about:String(b.about||'').trim().slice(0,2000)});await saveSettings();return send(res,200,{ok:true});}
     const r=S.regs[b.id];if(!r)return E(res,404,'Player not found');
     if(p==='/api/admin/paid'){r.paid=Math.max(0,parseInt(b.amount)||0);await saveReg(r);scheduleReport();return send(res,200,{ok:true});}
     if(p==='/api/admin/reset'){const t=crypto.randomBytes(4).toString('hex').slice(0,6);r.pw=hash(t);await saveReg(r);return send(res,200,{temp:t});}
