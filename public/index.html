@@ -1,0 +1,52 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Diwali 3x3 Tournament – Registration</title><link rel="stylesheet" href="/style.css"></head><body><div class="wrap">
+<div class="hero"><div style="font-size:2rem">🪔🏀🪔</div><h1>Diwali 3x3 Tournament</h1><p>Age-category 3x3 basketball festival</p></div>
+<div class="card"><h2>About the tournament</h2><p class="muted" style="margin-top:0">Players join categories by date of birth and may also play in other categories they are eligible for. The organizer may add or change categories later; you can then log in and edit your registration when the circular is released.</p><div id="catlist" class="muted"></div><p><a href="/my"><b>Already registered? Login to view / edit →</b></a></p></div>
+<div id="closed" class="card hidden"><b>Registration is currently closed.</b></div>
+<div id="main">
+<div class="card"><h2>Willing to participate?</h2><div class="radio"><label><input type="radio" name="will" value="yes"><span>Yes, I’m in! 🎉</span></label><label><input type="radio" name="will" value="no"><span>No</span></label></div><p id="declined" class="hidden muted">Thank you for your response. Happy Diwali! 🪔</p></div>
+<div id="formArea" class="hidden">
+<div class="card"><h2>Player details</h2>
+<label>Full name</label><input type="text" id="name" autocomplete="name">
+<label>Gender</label><div class="radio"><label><input type="radio" name="gender" value="Boys"><span>Boy</span></label><label><input type="radio" name="gender" value="Girls"><span>Girl</span></label></div>
+<label>Date of birth</label><input type="date" id="dob">
+<label>Contact number (parent/guardian for minors)</label><input type="tel" id="phone" inputmode="numeric" placeholder="10-digit mobile number">
+<label>Team name (optional)</label><input type="text" id="team">
+<label>Do you have a FIBA Profile ID?</label><div class="radio"><label><input type="radio" name="fiba" value="yes"><span>Yes</span></label><label><input type="radio" name="fiba" value="no"><span>No</span></label></div>
+<div id="fibaNo" class="hidden" style="margin-top:10px;padding:12px;border:1px solid var(--bad);border-radius:10px;color:var(--bad);font-weight:600">Registration cannot be accepted without a FIBA Profile ID. Please create one and come back.</div>
+<div id="fibaYes" class="hidden"><label>FIBA Profile ID</label><input type="text" id="fibaId" autocomplete="off">
+<label>Create a password (to login and edit later)</label><input type="password" id="pw" autocomplete="new-password" placeholder="At least 6 characters">
+<label>Confirm password</label><input type="password" id="pw2" autocomplete="new-password"></div></div>
+<div class="card hidden" id="catCard"><h2>Categories you are eligible for</h2><div id="cats"></div><div class="total"><span>Total fee</span><b id="total">₹0</b></div><div class="err" id="err"></div><button class="full" id="go">Register</button></div>
+</div></div>
+<div id="done" class="card hidden"><h2 class="ok">✅ Registered successfully</h2><p id="doneTxt"></p><p class="muted">Pay the fee to the organizer. Keep your FIBA ID and password: use them to <a href="/my">login</a> and view or edit your registration once the organizer announces it.</p><a class="btn" href="/my">Go to Login</a></div>
+</div>
+<script>
+const $=id=>document.getElementById(id),fmt=d=>d.split('-').reverse().join('.'),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const elig=(c,p)=>(c.gender==='Any'||c.gender===p.gender)&&(!c.cutoff||p.dob>=c.cutoff);
+const rule=c=>(c.gender==='Any'?'Boys & Girls':c.gender)+' · '+(c.cutoff?'born on/after '+fmt(c.cutoff):'any age');
+const val=n=>{const x=document.querySelector('input[name='+n+']:checked');return x?x.value:''};
+let CATS=[];
+const err=m=>{$('err').textContent=m;$('err').style.display=m?'block':'none'};
+(async()=>{const j=await (await fetch('/api/public')).json();CATS=j.cats;
+ $('catlist').innerHTML=CATS.filter(c=>c.open).map(c=>`<div>• <b>${esc(c.name)}</b> – ${rule(c)} – ₹${c.fee}${c.note?' ('+esc(c.note)+')':''}</div>`).join('');
+ if(!j.settings.registrationOpen){$('main').classList.add('hidden');$('closed').classList.remove('hidden');}})();
+document.querySelectorAll('input[name=will]').forEach(r=>r.onchange=()=>{const y=val('will')==='yes';$('formArea').classList.toggle('hidden',!y);$('declined').classList.toggle('hidden',y);});
+document.querySelectorAll('input[name=fiba]').forEach(r=>r.onchange=()=>{const y=val('fiba')==='yes';$('fibaYes').classList.toggle('hidden',!y);$('fibaNo').classList.toggle('hidden',y);render();});
+document.querySelectorAll('input[name=gender]').forEach(r=>r.onchange=render);$('dob').onchange=render;
+function total(){let t=0;document.querySelectorAll('.ex:checked').forEach(x=>t+=+x.dataset.fee);$('total').textContent='₹'+t;}
+function render(){const g=val('gender'),dob=$('dob').value;
+ if(!g||!dob||val('fiba')!=='yes'){$('catCard').classList.add('hidden');return;}
+ if(dob>new Date().toISOString().slice(0,10)){$('catCard').classList.add('hidden');return;}
+ const el=CATS.filter(c=>c.open&&elig(c,{gender:g,dob})),own=el.filter(c=>c.gender===g);
+ const def=(own.filter(c=>c.cutoff).sort((a,b)=>b.cutoff.localeCompare(a.cutoff))[0]||own.find(c=>!c.cutoff)||{}).id;
+ $('cats').innerHTML=el.length?el.map(c=>`<label class="opt"><input type="checkbox" class="ex" value="${c.id}" data-fee="${c.fee}" ${c.id===def?'checked':''}><span>${esc(c.name)}${c.note?` <span class="muted">(${esc(c.note)})</span>`:''}</span><small>₹${c.fee}</small></label>`).join(''):'<p class="muted">No category is available for this player right now.</p>';
+ document.querySelectorAll('.ex').forEach(x=>x.onchange=total);total();$('catCard').classList.remove('hidden');}
+$('go').onclick=async()=>{
+ const cats=[...document.querySelectorAll('.ex:checked')].map(x=>x.value),b={name:$('name').value,gender:val('gender'),dob:$('dob').value,phone:$('phone').value,team:$('team').value,fibaId:$('fibaId').value,password:$('pw').value,cats};
+ if(!b.fibaId.trim())return err('Enter your FIBA Profile ID.');if($('pw').value!==$('pw2').value)return err('Passwords do not match.');
+ err('');$('go').disabled=true;$('go').textContent='Saving...';
+ try{const r=await fetch('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}),j=await r.json();
+  if(!r.ok){err(j.error||'Could not save');}else{$('doneTxt').innerHTML='Registration ID: <b>'+j.id+'</b><br>Total fee: <b>₹'+j.fee+'</b>';$('main').classList.add('hidden');$('done').classList.remove('hidden');window.scrollTo(0,0);}
+ }catch(e){err('Network error. Please try again.');}
+ $('go').disabled=false;$('go').textContent='Register';};
+</script></body></html>

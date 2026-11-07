@@ -1,0 +1,59 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin – Diwali 3x3</title><link rel="stylesheet" href="/style.css"></head><body><div class="wrap wide">
+<h1 style="margin:0">🪔 Organizer Panel</h1>
+<div class="stats" id="stats"></div>
+<p><a class="btn" href="/api/admin/export.csv">Download CSV</a></p>
+
+<div class="card"><h2>Settings</h2>
+<label class="opt"><input type="checkbox" id="sReg"><span>Registration open (new players can register)</span></label>
+<label class="opt"><input type="checkbox" id="sEdit"><span>Players can login and edit their registration (switch on after the circular)</span></label>
+<label>Notice shown to players after login (optional)</label><textarea id="sNote" rows="2" placeholder="e.g. Under 11 category added. Edit by 20 Nov."></textarea>
+<button style="margin-top:10px" onclick="saveSettings()">Save settings</button> <span id="sMsg" class="ok"></span></div>
+
+<div class="card"><h2>Categories</h2>
+<p class="muted" style="margin-top:0">Add or change categories any time. A player is eligible if the gender matches and they were born on or after the date (leave the date empty for no age limit). “Open for selection” lets eligible players choose it; untick it to stop new entries while keeping existing ones.</p>
+<div class="row"><input type="hidden" id="cid">
+<div><label>Name</label><input type="text" id="cn" placeholder="e.g. Boys Under 11"></div>
+<div><label>For</label><select id="cg"><option value="Boys">Boys</option><option value="Girls">Girls</option><option value="Any">Boys &amp; Girls</option></select></div>
+<div><label>Born on or after</label><input type="date" id="cd"></div>
+<div style="max-width:100px"><label>Fee ₹</label><input type="number" id="cf" value="100" min="0"></div></div>
+<div class="row" style="margin-top:8px"><div style="flex:2"><label>Note (optional)</label><input type="text" id="cnote"></div>
+<div style="flex:0;white-space:nowrap"><label class="opt" style="margin:0"><input type="checkbox" id="co" checked><span>Open for selection</span></label></div>
+<div style="flex:0"><button onclick="saveCat()">Save category</button></div></div>
+<div class="err" id="cerr"></div><div id="catTable" style="margin-top:12px"></div></div>
+
+<div id="report"></div>
+
+<div class="card"><h2>All players</h2><input type="text" id="q" placeholder="Search name / FIBA ID / team" oninput="players()"><div id="plist" style="margin-top:10px"></div></div>
+</div>
+<script>
+const $=id=>document.getElementById(id),fmt=d=>d.split('-').reverse().join('.'),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const elig=(c,p)=>(c.gender==='Any'||c.gender===p.gender)&&(!c.cutoff||p.dob>=c.cutoff);
+const api=async(p,b)=>{const r=await fetch('/api/admin/'+p,b===undefined?{}:{method:'POST',body:JSON.stringify(b)});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Error');return j;};
+let D={regs:[],cats:[],settings:{}};
+async function load(){D=await api('state');paint();}
+function paint(){
+ const R=D.regs,due=R.reduce((a,r)=>a+r.fee,0),paid=R.reduce((a,r)=>a+(r.paid||0),0);
+ $('stats').innerHTML=`<div class="stat"><b>${R.length}</b>Players</div><div class="stat"><b>₹${due}</b>Fee due</div><div class="stat"><b>₹${paid}</b>Collected</div><div class="stat"><b>₹${due-paid}</b>Balance</div>`;
+ $('sReg').checked=!!D.settings.registrationOpen;$('sEdit').checked=!!D.settings.editOpen;$('sNote').value=D.settings.notice||'';
+ $('catTable').innerHTML='<table><tr><th>Category</th><th>For</th><th>Born on/after</th><th>Fee</th><th>Open</th><th></th></tr>'+D.cats.map((c,i)=>`<tr><td>${esc(c.name)}</td><td>${c.gender==='Any'?'Boys & Girls':c.gender}</td><td>${c.cutoff?fmt(c.cutoff):'any age'}</td><td>₹${c.fee}</td><td>${c.open?'Yes':'No'}</td><td><button class="alt" onclick="editCat(${i})">Edit</button> <button class="del" onclick="delCat(${i})">Delete</button></td></tr>`).join('')+'</table>';
+ $('report').innerHTML=D.cats.map(c=>{
+  const sel=R.filter(r=>r.cats.includes(c.id)),notJoined=R.filter(r=>elig(c,r)&&!r.cats.includes(c.id)).length,by={};
+  sel.forEach(r=>{const t=r.team||'(No team yet)';(by[t]=by[t]||[]).push(r);});const ts=Object.keys(by);
+  return `<div class="card"><h2>${esc(c.name)} — ${sel.length} players · ${ts.filter(x=>x[0]!=='(').length} teams</h2><p class="muted" style="margin-top:0">${c.gender==='Any'?'Boys & Girls':c.gender}, ${c.cutoff?'born on/after '+fmt(c.cutoff):'any age'}. Eligible registered players who have not joined: <b>${notJoined}</b></p>`+
+  (sel.length?'<table><tr><th>Name</th><th>DOB</th><th>Phone</th><th>FIBA ID</th></tr>'+ts.map(t=>`<tr class="team"><td colspan="4">${esc(t)} (${by[t].length})</td></tr>`+by[t].map(r=>`<tr><td>${esc(r.name)}${c.gender==='Any'?' ('+r.gender[0]+')':''}</td><td>${fmt(r.dob)}</td><td>${esc(r.phone)}</td><td>${esc(r.fiba)}</td></tr>`).join('')).join('')+'</table>':'<p class="muted">No players yet.</p>')+'</div>';}).join('');
+ players();}
+function players(){const q=$('q').value.toLowerCase();
+ const L=D.regs.filter(r=>[r.name,r.fiba,r.team].join(' ').toLowerCase().includes(q));
+ $('plist').innerHTML='<table><tr><th>ID</th><th>Name</th><th>Gender · DOB</th><th>Phone</th><th>Team</th><th>FIBA ID</th><th>Categories</th><th>Fee</th><th>Paid ₹</th><th>Balance</th><th></th></tr>'+L.map(r=>`<tr><td>${r.id}</td><td>${esc(r.name)}</td><td>${r.gender[0]} · ${fmt(r.dob)}</td><td>${esc(r.phone)}</td><td>${esc(r.team)}</td><td>${esc(r.fiba)}</td><td>${r.cats.map(i=>esc((D.cats.find(c=>c.id===i)||{}).name)).join(', ')}</td><td>₹${r.fee}</td><td><input type="number" style="width:80px;padding:4px" value="${r.paid||0}" onchange="pay(${r.id},this.value)"></td><td>₹${r.balance}</td><td style="white-space:nowrap"><button class="alt" style="padding:4px 8px;font-size:.8rem" onclick="reset(${r.id})">Reset password</button> <button class="del" onclick="delP(${r.id})">Delete</button></td></tr>`).join('')+'</table>';}
+async function saveSettings(){await api('settings',{registrationOpen:$('sReg').checked,editOpen:$('sEdit').checked,notice:$('sNote').value});$('sMsg').textContent='Saved ✓';setTimeout(()=>$('sMsg').textContent='',2500);load();}
+async function saveCat(){$('cerr').style.display='none';
+ try{await api('cats',{id:$('cid').value||undefined,name:$('cn').value,gender:$('cg').value,cutoff:$('cd').value,fee:$('cf').value,note:$('cnote').value,open:$('co').checked});
+  ['cid','cn','cd','cnote'].forEach(i=>$(i).value='');$('cf').value=100;$('co').checked=true;load();}
+ catch(e){$('cerr').textContent=e.message;$('cerr').style.display='block';}}
+function editCat(i){const c=D.cats[i];$('cid').value=c.id;$('cn').value=c.name;$('cg').value=c.gender;$('cd').value=c.cutoff||'';$('cf').value=c.fee;$('cnote').value=c.note||'';$('co').checked=c.open;window.scrollTo(0,0);}
+async function delCat(i){const c=D.cats[i],n=D.regs.filter(r=>r.cats.includes(c.id)).length;if(!confirm('Delete "'+c.name+'"? '+n+' player(s) will be removed from it. (Tip: untick "Open for selection" to just stop new entries.)'))return;await api('cats/delete',{id:c.id});load();}
+async function pay(id,v){await api('paid',{id,amount:v});load();}
+async function reset(id){if(!confirm('Reset this player\'s password?'))return;const j=await api('reset',{id});alert('Temporary password: '+j.temp+'\nTell the player to login with it.');}
+async function delP(id){if(!confirm('Delete this registration permanently?'))return;await api('delete',{id});load();}
+load();
+</script></body></html>

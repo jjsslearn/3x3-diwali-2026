@@ -1,0 +1,38 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>My registration – Diwali 3x3</title><link rel="stylesheet" href="/style.css"></head><body><div class="wrap">
+<div class="hero"><div style="font-size:2rem">🪔</div><h1>My Registration</h1></div>
+<div class="card" id="login"><h2>Login</h2><label>FIBA Profile ID</label><input type="text" id="fid" autocomplete="username"><label>Password</label><input type="password" id="lpw" autocomplete="current-password"><div class="err" id="lerr"></div><button class="full" id="lbtn">Login</button><p class="muted">Forgot your password? Ask the organizer to reset it. <a href="/">New registration</a></p></div>
+<div id="me" class="hidden">
+<div class="card"><h2 id="who"></h2><div id="info" class="muted"></div><div id="notice" class="muted" style="margin-top:8px"></div></div>
+<div class="card"><h2>Contact</h2><label>Contact number</label><input type="tel" id="mphone" inputmode="numeric"><label>Team name</label><input type="text" id="mteam"></div>
+<div class="card"><h2>My categories</h2><div id="mcats"></div><div class="total"><span>Total fee</span><b id="mtotal"></b></div><div id="pay" class="muted"></div><div class="err" id="merr"></div><button class="full" id="save">Save changes</button><p id="msg" class="ok"></p></div>
+<p><button class="alt" id="out">Logout</button></p></div></div>
+<script>
+const $=id=>document.getElementById(id),fmt=d=>d.split('-').reverse().join('.'),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const elig=(c,p)=>(c.gender==='Any'||c.gender===p.gender)&&(!c.cutoff||p.dob>=c.cutoff);
+let D=null;const tok=()=>localStorage.getItem('tok');
+const show=(id,m)=>{$(id).textContent=m;$(id).style.display=m?'block':'none'};
+async function load(){
+ if(!tok())return;const r=await fetch('/api/me',{headers:{Authorization:'Bearer '+tok()}});
+ if(!r.ok){localStorage.removeItem('tok');return;}D=await r.json();paint();}
+function paint(){
+ const {reg,cats,settings}=D,edit=settings.editOpen;
+ $('login').classList.add('hidden');$('me').classList.remove('hidden');
+ $('who').textContent=reg.name+' (ID '+reg.id+')';
+ $('info').innerHTML=`${reg.gender==='Boys'?'Boy':'Girl'} · DOB ${fmt(reg.dob)} · FIBA ID ${esc(reg.fiba)}`;
+ $('notice').innerHTML=(edit?'<b class="ok">Editing is open.</b> ':'<b>Editing is not open yet.</b> You can view your registration; wait for the organizer’s circular to make changes. ')+esc(settings.notice||'');
+ $('mphone').value=reg.phone;$('mteam').value=reg.team||'';$('mphone').disabled=$('mteam').disabled=!edit;
+ const list=cats.filter(c=>elig(c,reg)&&(c.open||reg.cats.includes(c.id)));
+ const gone=reg.cats.filter(id=>!list.some(c=>c.id===id));
+ $('mcats').innerHTML=(list.length?list.map(c=>`<label class="opt"><input type="checkbox" class="ex" value="${c.id}" data-fee="${c.fee}" ${reg.cats.includes(c.id)?'checked':''} ${edit?'':'disabled'}><span>${esc(c.name)}${c.note?` <span class="muted">(${esc(c.note)})</span>`:''}${c.open?'':' <span class="muted">(closed – can only be removed)</span>'}</span><small>₹${c.fee}</small></label>`).join(''):'<p class="muted">No categories available.</p>')+(gone.length?'<p class="muted">Some categories you joined are no longer available to you and will be removed when you save.</p>':'');
+ document.querySelectorAll('.ex').forEach(x=>x.onchange=tot);tot();$('save').classList.toggle('hidden',!edit);
+ $('pay').innerHTML=`Paid so far: <b>₹${reg.paid||0}</b> · Balance: <b>₹${reg.balance}</b> (saved categories)`;}
+function tot(){let t=0;document.querySelectorAll('.ex:checked').forEach(x=>t+=+x.dataset.fee);$('mtotal').textContent='₹'+t;}
+$('lbtn').onclick=async()=>{show('lerr','');const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fibaId:$('fid').value,password:$('lpw').value})}),j=await r.json();
+ if(!r.ok)return show('lerr',j.error||'Login failed');localStorage.setItem('tok',j.token);load();};
+$('save').onclick=async()=>{show('merr','');$('msg').textContent='';
+ const cats=[...document.querySelectorAll('.ex:checked')].map(x=>x.value);
+ const r=await fetch('/api/me/update',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok()},body:JSON.stringify({cats,phone:$('mphone').value,team:$('mteam').value})}),j=await r.json();
+ if(!r.ok)return show('merr',j.error||'Could not save');D.reg=j.reg;paint();$('msg').textContent='Saved ✓';};
+$('out').onclick=()=>{localStorage.removeItem('tok');location.reload();};
+load();
+</script></body></html>
