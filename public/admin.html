@@ -3,7 +3,10 @@
 <div class="stats" id="stats"></div>
 <p><a class="btn" href="/api/admin/export.csv">Download CSV</a></p>
 
-<div class="card"><h2>Settings</h2>
+<div class="card"><h2>Front page &amp; settings</h2>
+<label>Tournament title</label><input type="text" id="sTitle" maxlength="80">
+<label>Subtitle (short line under the title)</label><input type="text" id="sSub" maxlength="120">
+<label>Description shown on the front page (dates, venue, rules, contact… line breaks are kept)</label><textarea id="sAbout" rows="6"></textarea>
 <label class="opt"><input type="checkbox" id="sReg"><span>Registration open (new players can register)</span></label>
 <label class="opt"><input type="checkbox" id="sEdit"><span>Players can login and edit their registration (switch on after the circular)</span></label>
 <label>Notice shown to players after login (optional)</label><textarea id="sNote" rows="2" placeholder="e.g. Under 11 category added. Edit by 20 Nov."></textarea>
@@ -34,7 +37,7 @@ async function load(){D=await api('state');paint();}
 function paint(){
  const R=D.regs,due=R.reduce((a,r)=>a+r.fee,0),paid=R.reduce((a,r)=>a+(r.paid||0),0);
  $('stats').innerHTML=`<div class="stat"><b>${R.length}</b>Players</div><div class="stat"><b>₹${due}</b>Fee due</div><div class="stat"><b>₹${paid}</b>Collected</div><div class="stat"><b>₹${due-paid}</b>Balance</div>`;
- $('sReg').checked=!!D.settings.registrationOpen;$('sEdit').checked=!!D.settings.editOpen;$('sNote').value=D.settings.notice||'';
+ $('sReg').checked=!!D.settings.registrationOpen;$('sEdit').checked=!!D.settings.editOpen;$('sNote').value=D.settings.notice||'';$('sTitle').value=D.settings.title||'';$('sSub').value=D.settings.subtitle||'';$('sAbout').value=D.settings.about||'';
  $('catTable').innerHTML='<table><tr><th>Category</th><th>For</th><th>Born on/after</th><th>Fee</th><th>Open</th><th></th></tr>'+D.cats.map((c,i)=>`<tr><td>${esc(c.name)}</td><td>${c.gender==='Any'?'Boys & Girls':c.gender}</td><td>${c.cutoff?fmt(c.cutoff):'any age'}</td><td>₹${c.fee}</td><td>${c.open?'Yes':'No'}</td><td><button class="alt" onclick="editCat(${i})">Edit</button> <button class="del" onclick="delCat(${i})">Delete</button></td></tr>`).join('')+'</table>';
  $('report').innerHTML=D.cats.map(c=>{
   const sel=R.filter(r=>r.cats.includes(c.id)),notJoined=R.filter(r=>elig(c,r)&&!r.cats.includes(c.id)).length,by={};
@@ -45,7 +48,7 @@ function paint(){
 function players(){const q=$('q').value.toLowerCase();
  const L=D.regs.filter(r=>[r.name,r.fiba,r.team].join(' ').toLowerCase().includes(q));
  $('plist').innerHTML='<table><tr><th>ID</th><th>Name</th><th>Gender · DOB</th><th>Phone</th><th>Team</th><th>FIBA ID</th><th>Categories</th><th>Fee</th><th>Paid ₹</th><th>Balance</th><th></th></tr>'+L.map(r=>`<tr><td>${r.id}</td><td>${esc(r.name)}</td><td>${r.gender[0]} · ${fmt(r.dob)}</td><td>${esc(r.phone)}</td><td>${esc(r.team)}</td><td>${esc(r.fiba)}</td><td>${r.cats.map(i=>esc((D.cats.find(c=>c.id===i)||{}).name)).join(', ')}</td><td>₹${r.fee}</td><td><input type="number" style="width:80px;padding:4px" value="${r.paid||0}" onchange="pay(${r.id},this.value)"></td><td>₹${r.balance}</td><td style="white-space:nowrap"><button class="alt" style="padding:4px 8px;font-size:.8rem" onclick="reset(${r.id})">Reset password</button> <button class="del" onclick="delP(${r.id})">Delete</button></td></tr>`).join('')+'</table>';}
-async function saveSettings(){await api('settings',{registrationOpen:$('sReg').checked,editOpen:$('sEdit').checked,notice:$('sNote').value});$('sMsg').textContent='Saved ✓';setTimeout(()=>$('sMsg').textContent='',2500);load();}
+async function saveSettings(){await api('settings',{registrationOpen:$('sReg').checked,editOpen:$('sEdit').checked,notice:$('sNote').value,title:$('sTitle').value,subtitle:$('sSub').value,about:$('sAbout').value});$('sMsg').textContent='Saved ✓';setTimeout(()=>$('sMsg').textContent='',2500);load();}
 async function saveCat(){$('cerr').style.display='none';
  try{await api('cats',{id:$('cid').value||undefined,name:$('cn').value,gender:$('cg').value,cutoff:$('cd').value,fee:$('cf').value,note:$('cnote').value,open:$('co').checked});
   ['cid','cn','cd','cnote'].forEach(i=>$(i).value='');$('cf').value=100;$('co').checked=true;load();}
