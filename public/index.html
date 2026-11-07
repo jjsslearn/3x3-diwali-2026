@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Diwali 3x3 Tournament – Registration</title><link rel="stylesheet" href="/style.css"></head><body><div class="wrap">
-<div class="hero"><div style="font-size:2rem">🪔🏀🪔</div><h1>Diwali 3x3 Tournament</h1><p>Age-category 3x3 basketball festival</p></div>
-<div class="card"><h2>About the tournament</h2><p class="muted" style="margin-top:0">Players join categories by date of birth and may also play in other categories they are eligible for. The organizer may add or change categories later; you can then log in and edit your registration when the circular is released.</p><div id="catlist" class="muted"></div><p><a href="/my"><b>Already registered? Login to view / edit →</b></a></p></div>
+<div class="hero"><div style="font-size:2rem">🪔🏀🪔</div><h1 id="ttl">Diwali 3x3 Tournament</h1><p id="sub">Age-category 3x3 basketball festival</p></div>
+<div class="card"><h2>About the tournament</h2><p class="muted" id="about" style="margin-top:0;white-space:pre-line"></p><div id="catlist" class="muted"></div><p><a href="/my"><b>Already registered? Login to view / edit →</b></a></p></div>
 <div id="closed" class="card hidden"><b>Registration is currently closed.</b></div>
 <div id="main">
 <div class="card"><h2>Willing to participate?</h2><div class="radio"><label><input type="radio" name="will" value="yes"><span>Yes, I’m in! 🎉</span></label><label><input type="radio" name="will" value="no"><span>No</span></label></div><p id="declined" class="hidden muted">Thank you for your response. Happy Diwali! 🪔</p></div>
@@ -27,7 +27,7 @@ const rule=c=>(c.gender==='Any'?'Boys & Girls':c.gender)+' · '+(c.cutoff?'born 
 const val=n=>{const x=document.querySelector('input[name='+n+']:checked');return x?x.value:''};
 let CATS=[];
 const err=m=>{$('err').textContent=m;$('err').style.display=m?'block':'none'};
-(async()=>{const j=await (await fetch('/api/public')).json();CATS=j.cats;
+(async()=>{const j=await (await fetch('/api/public')).json();CATS=j.cats;const st=j.settings;$('ttl').textContent=st.title;document.title=st.title+' – Registration';$('sub').textContent=st.subtitle||'';$('about').textContent=st.about||'';
  $('catlist').innerHTML=CATS.filter(c=>c.open).map(c=>`<div>• <b>${esc(c.name)}</b> – ${rule(c)} – ₹${c.fee}${c.note?' ('+esc(c.note)+')':''}</div>`).join('');
  if(!j.settings.registrationOpen){$('main').classList.add('hidden');$('closed').classList.remove('hidden');}})();
 document.querySelectorAll('input[name=will]').forEach(r=>r.onchange=()=>{const y=val('will')==='yes';$('formArea').classList.toggle('hidden',!y);$('declined').classList.toggle('hidden',y);});
